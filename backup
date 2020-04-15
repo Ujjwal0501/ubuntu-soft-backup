@@ -1,0 +1,165 @@
+#!/bin/bash
+
+MASK=127
+ROOT=""
+BACKUP="$HOME"
+
+usage() { echo "Usage: $0 [-m <mask-for-options>] [-r <some-other-root>] [-b <backup-directory>]" 1>&2; exit 1; }
+
+while getopts ":m:r:b:" o; do
+    case "${o}" in
+        m)
+            m=${OPTARG}
+            if [ $m -gt 127 ]; then echo -e "Invalid mask\n"; usage; else (( MASK = m )); fi
+            ;;
+        r)
+            r=${OPTARG}
+            if [[ ! -d "$r" ]]; then echo -e "Root directory does not exist\n"; usage; fi
+            ROOT=$r;
+            ;;
+        b)
+            BACKUP=${OPTARG}
+            if [[ ! -d "$BACKUP" ]]; then echo -e "Backup directory does not exist\n"; usage; fi
+            ;;
+        *)
+            usage
+            ;;
+    esac
+done
+shift $((OPTIND-1))
+
+BACKUP=$(echo "$BACKUP/CustomBackup")
+echo "$BACKUP"
+if [ -d "$BACKUP" ]; then
+    echo "Backup directory already exists."
+    read -p "Do you want to override any existing backup? (yes/[No])" choice
+    case "$choice" in
+        [Yy][Ee][sS]|[Yy])
+            rm "$BACKUP" -r
+            mkdir "$BACKUP" -p || exit 1
+            echo "Changing working directory..."
+            cd "$BACKUP"
+            ;;
+        *)
+            echo "Exiting..."
+            echo "No backup made!!"
+            exit 0
+            ;;
+    esac
+else
+    mkdir "$BACKUP" -p
+    echo "Changing working directory..."
+    cd "$BACKUP"
+fi
+
+if [ -z "${m}" ] ; then
+    read -p "Backup installed snaps? ([yes]/no): " choice
+    case "$choice" in
+        [Nn][Oo]|[Nn])
+            (( MASK = MASK & 63 ))
+            ;;
+    esac
+
+    read -p "Backup installed packages? ([yes]/no): " choice
+    case "$choice" in
+        [Nn][Oo]|[Nn])
+            (( MASK = MASK & 95 ))
+            ;;
+    esac
+
+    read -p "Backup third party software repositories? ([yes]/no): " choice
+    case "$choice" in
+        [Nn][Oo]|[Nn])
+            (( MASK = MASK & 111 ))
+            ;;
+    esac
+
+    read -p "Backup third party public keys? ([yes]/no): " choice
+    case "$choice" in
+        [Nn][Oo]|[Nn])
+            (( MASK = MASK & 119 ))
+            ;;
+    esac
+
+    read -p "Backup network configurations and saved networks? ([yes]/no): " choice
+    case "$choice" in
+        [Nn][Oo]|[Nn])
+            (( MASK = MASK & 123 ))
+            ;;
+    esac
+
+    read -p "Backup system PATH variable? ([yes]/no): " choice
+    case "$choice" in
+        [Nn][Oo]|[Nn])
+            (( MASK = MASK & 125 ))
+            ;;
+    esac
+
+    read -p "Backup mount options? ([yes]/no): " choice
+    case "$choice" in
+        [Nn][Oo]|[Nn])
+            (( MASK = MASK & 126 ))
+            ;;
+    esac
+
+fi
+
+
+snaps() {
+    input=$(snap list | cut -f -1 -d ' ')
+
+    echo "$input" | sed 1d > snaps.list
+    echo "Snaps list saved"
+}
+
+packages() {
+    sudo apt list --manual-installed | grep "\[installed\]" | cut -f -1 -d '/' > package.list
+    echo "Packages list saved"
+}
+
+repositories() {
+    mkdir ./etc/apt/sources.list.d -p || exit 1
+    cp "$ROOT/etc/apt/sources.list.d/" ./etc/apt/ -r
+    echo "Third party repositories backed up"
+}
+
+public_keys() {
+    mkdir ./etc/apt/trusted.gpg.d -p || exit 1
+    cp "$ROOT/etc/apt/trusted.gpg" ./etc/apt/
+    cp "$ROOT/etc/apt/trusted.gpg.d/" ./etc/apt/ -r
+
+    mkdir ./usr/share/keyrings -p || exit 1
+    cp "$ROOT/usr/share/keyrings/" ./usr/share/ -r
+
+    echo "Public Keys of repositories backed up"
+}
+
+saved_nw() {
+    mkdir ./etc/NetworkManager/system-connections -p || exit 1
+    sudo cp "$ROOT/etc/NetworkManager/system-connections/" ./etc/NetworkManager/ -r
+
+    echo "Network configurations backed up"
+}
+
+env_path() {
+    mkdir ./etc -p || exit
+    cp "$ROOT/etc/environment" ./etc/
+
+    echo "Environment variable backed up"
+}
+
+mount_options() {
+    input=$(cat "$ROOT/etc/fstab" | grep "^#" -v)
+
+    echo "$input" | awk '{if ($2 == "none" || $2 == "/" || $2 == "/home" || $2 == "/boot/efi" || $2 == "/boot" ) ; else print $0; }' > ./etc/fstab
+
+    echo "Mount configurations backed up"
+}
+
+if (( ( $MASK & 64 ) > 0 )); then snaps ; fi
+if (( ( $MASK & 32 ) > 0 )); then packages ; fi
+if (( ( $MASK & 16 ) > 0 )); then repositories ; fi
+if (( ( $MASK & 8 ) > 0 )); then public_keys ; fi
+if (( ( $MASK & 4 ) > 0 )); then saved_nw ; fi
+if (( ( $MASK & 2 ) > 0 )); then env_path ; fi
+if (( ( $MASK & 1 ) > 0 )); then mount_options ; fi

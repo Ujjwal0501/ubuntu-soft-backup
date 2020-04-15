@@ -1,0 +1,166 @@
+#!/bin/bash
+
+MASK=127
+ROOT=""
+BACKUP="$HOME/CustomBackup"
+
+usage() { echo "Usage: $0 [-m <mask-for-options>] [-r <some-other-root>] [-b <backup-directory>]" 1>&2; exit 1; }
+
+while getopts ":m:r:b:" o; do
+    case "${o}" in
+        m)
+            m=${OPTARG}
+            if [ $m -gt 127 ]; then echo -e "Invalid mask\n"; usage; else (( MASK = m )); fi
+            ;;
+        r)
+            r=${OPTARG}
+            if [[ ! -d "$r" ]]; then echo -e "Invalid root directory\n"; usage; fi
+            ROOT=$r;
+            ;;
+        b)
+            BACKUP=${OPTARG}
+            if [[ ! -d "$BACKUP" ]]; then echo -e "Backup directory does not exist\n"; usage; fi
+            ;;
+        *)
+            usage
+            ;;
+    esac
+done
+shift $((OPTIND-1))
+
+if [ -d "$BACKUP" ]; then
+    echo "Changing working directory..."
+    cd "$BACKUP"
+else
+    echo -e "\nERROR: Backup directory not found"
+    exit 1
+fi
+
+if [ -z "${m}" ] ; then
+    read -p "Restore snaps list? ([yes]/no): " choice
+    if [ "$choice" == "n" ] || [ "$choice" == "no" ] || [ "$choice" == "N" ] || [ "$choice" == "No" ] || [ "$choice" == "NO" ] || [ "$choice" == "nO" ]; then
+        (( MASK = MASK & 63 ))
+    fi
+
+    read -p "Restore packages list? ([yes]/no): " choice
+    if [ "$choice" == "n" ] || [ "$choice" == "no" ] || [ "$choice" == "N" ] || [ "$choice" == "No" ] || [ "$choice" == "NO" ] || [ "$choice" == "nO" ]; then
+        (( MASK = MASK & 95 ))
+    fi
+
+    read -p "Restore third party software repositories? ([yes]/no): " choice
+    if [ "$choice" == "n" ] || [ "$choice" == "no" ] || [ "$choice" == "N" ] || [ "$choice" == "No" ] || [ "$choice" == "NO" ] || [ "$choice" == "nO" ]; then
+        (( MASK = MASK & 111 ))
+    fi
+
+    read -p "Restore third party public keys? ([yes]/no): " choice
+    if [ "$choice" == "n" ] || [ "$choice" == "no" ] || [ "$choice" == "N" ] || [ "$choice" == "No" ] || [ "$choice" == "NO" ] || [ "$choice" == "nO" ]; then
+        (( MASK = MASK & 119 ))
+    fi
+
+    read -p "Restore network configurations and saved networks? ([yes]/no): " choice
+    if [ "$choice" == "n" ] || [ "$choice" == "no" ] || [ "$choice" == "N" ] || [ "$choice" == "No" ] || [ "$choice" == "NO" ] || [ "$choice" == "nO" ]; then
+        (( MASK = MASK & 123 ))
+    fi
+
+    read -p "Restore system PATH variable? ([yes]/no): " choice
+    if [ "$choice" == "n" ] || [ "$choice" == "no" ] || [ "$choice" == "N" ] || [ "$choice" == "No" ] || [ "$choice" == "NO" ] || [ "$choice" == "nO" ]; then
+        (( MASK = MASK & 125 ))
+    fi
+
+    read -p "Restore mount options? ([yes]/no): " choice
+    if [ "$choice" == "n" ] || [ "$choice" == "no" ] || [ "$choice" == "N" ] || [ "$choice" == "No" ] || [ "$choice" == "NO" ] || [ "$choice" == "nO" ]; then
+        (( MASK = MASK & 126 ))
+    fi
+
+fi
+
+
+snaps() {
+    if [ -f "./snaps.list" ]; then
+        list=( "$( cat ./snaps.list )" )
+        for i in ${list[@]}; do sudo snap install $i; done
+        echo -e "\nSUCCESS: Snap softwares restored"
+    else
+        echo -e "\nWARNING: Could not find snaps backup list"
+    fi
+}
+
+packages() {
+    if [ -f "./package.list" ]; then
+        sudo apt install < ./package.list
+        echo -e "\nSUCCESS: Software packages restored"
+    else
+        echo -e "\nWARNING: Could not find packages backup list"
+    fi
+}
+
+repositories() {
+
+    if [ -d "./etc/apt/sources.list.d" ]; then
+        sudo cp ./etc/apt/sources.list.d/* "$ROOT/etc/apt/sources.list.d/"
+        echo -e "\nSUCCESS: Third party repositories restored"
+    else
+        echo -e "\nWARNING: Could not find third party repositories backup"
+    fi
+}
+
+public_keys() {
+    if [ -d "./etc/apt/trusted.gpg.d" ]; then
+        sudo cp ./etc/apt/trusted.gpg.d/* "$ROOT/etc/apt/trusted.gpg.d/"
+        echo -e "\nSUCCESS: Trusted GPG directory restored"
+    else
+        echo -e "\nWARNING: Could not find trusted gpg directory"
+    fi
+
+    if [ -f "./etc/apt/trusted.gpg" ]; then
+        sudo cp "$ROOT/etc/apt/trusted.gpg" "$ROOT/etc/apt/trusted.gpg"
+        sudo cp ./etc/apt/trusted.gpg "$ROOT/etc/apt/"
+        echo -e "\nSUCCESS: Trusted GPG file restored"
+    else
+        echo -e "\nWARNING: Could not find trusted gpg file backup"
+    fi
+
+    if [ -d "./usr/share/keyrings" ]; then
+        sudo cp ./usr/share/keyrings/* "$ROOT/usr/share/keyrings/" -i
+        echo -e "\nSUCCESS: Shared keyrings directory restored"
+    else
+        echo -e "\nWARNING: Could not find shared keyrings backup directory"
+    fi
+}
+
+saved_nw() {
+    if [ -d "./etc/NetworkManager/system-connections" ]; then
+        sudo cp ./etc/NetworkManager/system-connections/* "$ROOT/etc/NetworkManager/system-connections/" -i
+        echo -e "\nSUCCESS: Network configurations restored"
+    else
+        echo -e "\nWARNING: Could not find network configurations backup"
+    fi
+}
+
+env_path() {
+    if [ -f "./etc/environment" ]; then
+        sudo cp "$ROOT/etc/environment" "$ROOT/etc/environment.bak"
+        sudo cp ./etc/environment "$ROOT/etc/"
+        echo -e "\nSUCCESS: System environment variable restored"
+    else
+        echo -e "\nWARNING: Could not find system environment variable backup"
+    fi
+}
+
+mount_options() {
+    if [ -f "./etc/fstab" ]; then
+        sudo cp "$ROOT/etc/fstab" "$ROOT/etc/fstab.bak"
+        sudo cat ./etc/fstab >> "$ROOT/etc/fstab"
+        echo -e "\nSUCCESS: Mount configurations restored"
+    else
+        echo -e "\nWARNING: Could not find Mount configurations backup"
+    fi
+}
+
+if (( ( $MASK & 16 ) > 0 )); then repositories ; fi
+if (( ( $MASK & 8 ) > 0 )); then public_keys ; fi
+if (( ( $MASK & 4 ) > 0 )); then saved_nw ; fi
+if (( ( $MASK & 2 ) > 0 )); then env_path ; fi
+if (( ( $MASK & 1 ) > 0 )); then mount_options ; fi
+if (( ( $MASK & 64 ) > 0 )); then snaps ; fi
+if (( ( $MASK & 32 ) > 0 )); then packages ; fi
