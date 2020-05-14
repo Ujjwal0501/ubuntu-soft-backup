@@ -87,6 +87,7 @@ snaps() {
 
 packages() {
     if [ -f "./package.list" ]; then
+        sudo apt update
         list=$( cat ./package.list )
         sudo apt install $list -y
         echo -e "\nSUCCESS: Software packages restored"
