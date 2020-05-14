@@ -162,6 +162,38 @@ mount_options() {
     fi
 }
 
+backup_dirs=( "" )
+if [ ! -f backups.list ]; then
+    echo "Backup Index file does not exist.";
+    exit 1;
+fi
+
+echo -e "\nAvailable Backups\n\t    Ubuntu\tBackup Date"
+i=0
+while read -r line; do 
+    (( i++ ))
+    val=( $line )
+    echo -e "\t$i)  ${val[1]}\t`date -d @${val[0]}`"
+    backup_dirs=( "${backup_dirs[@]}" "${val[0]}-${val[1]}" )
+done < backups.list
+
+echo ""
+read -p "Select a backup to restore. (1-$i): " choice
+(( i++ ))
+if [ $choice -lt $i ] && [ $choice -gt 0 ]; then
+    if [ -d "${backup_dirs[$choice]}" ]; then
+        BACKUP="$BACKUP/${backup_dirs[$choice]}/"
+        cd "$BACKUP" || exit 1
+    else
+        echo -e "\nInvalid backup or backup directory has been deleted."
+        exit 1
+    fi
+else
+    echo -e "\nInvalid backup selected."
+    exit 1
+fi
+
+echo ""
 if (( ( $MASK & 16 ) > 0 )); then repositories ; fi
 if (( ( $MASK & 8 ) > 0 )); then public_keys ; fi
 if (( ( $MASK & 4 ) > 0 )); then saved_nw ; fi

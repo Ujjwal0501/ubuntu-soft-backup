@@ -3,6 +3,8 @@
 MASK=127
 ROOT=""
 BACKUP="$HOME"
+RELEASE=$( lsb_release -rs )
+TIME=$( date +%s )
 
 usage() { echo "Usage: $0 [-m <mask-for-options>] [-r <some-other-root>] [-b <backup-directory>]" 1>&2; exit 1; }
 
@@ -28,7 +30,7 @@ while getopts ":m:r:b:" o; do
 done
 shift $((OPTIND-1))
 
-BACKUP=$(echo "$BACKUP/CustomBackup")
+BACKUP=$(echo "$BACKUP/CustomBackup/$TIME-$RELEASE/")
 echo "$BACKUP"
 if [ -d "$BACKUP" ]; then
     echo "Backup directory already exists."
@@ -163,3 +165,4 @@ if (( ( $MASK & 8 ) > 0 )); then public_keys ; fi
 if (( ( $MASK & 4 ) > 0 )); then saved_nw ; fi
 if (( ( $MASK & 2 ) > 0 )); then env_path ; fi
 if (( ( $MASK & 1 ) > 0 )); then mount_options ; fi
+echo "$TIME $RELEASE" >> ../backups.list
