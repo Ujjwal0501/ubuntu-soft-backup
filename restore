@@ -150,7 +150,7 @@ env_path() {
 mount_options() {
     if [ -f "./etc/fstab" ]; then
         sudo cp "$ROOT/etc/fstab" "$ROOT/etc/fstab.bak"
-        sudo cat ./etc/fstab >> "$ROOT/etc/fstab"
+        sudo su -c 'cat ./etc/fstab >> "$ROOT/etc/fstab"'
         echo -e "\nSUCCESS: Mount configurations restored"
     else
         echo -e "\nWARNING: Could not find Mount configurations backup"
