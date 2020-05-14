@@ -156,6 +156,7 @@ mount_options() {
         sudo cp "$ROOT/etc/fstab" "$ROOT/etc/fstab.bak"
         sudo su -c 'cat ./etc/fstab >> "$ROOT/etc/fstab"'
         echo -e "\nSUCCESS: Mount configurations restored"
+        sudo mount -a
     else
         echo -e "\nWARNING: Could not find Mount configurations backup"
     fi
