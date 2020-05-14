@@ -87,7 +87,8 @@ snaps() {
 
 packages() {
     if [ -f "./package.list" ]; then
-        sudo apt install < ./package.list
+        list=$( cat ./package.list )
+        sudo apt install $list -y
         echo -e "\nSUCCESS: Software packages restored"
     else
         echo -e "\nWARNING: Could not find packages backup list"
